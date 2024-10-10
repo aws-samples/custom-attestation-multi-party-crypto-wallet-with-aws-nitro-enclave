@@ -1,0 +1,7 @@
+cryptography==40.0.1
+requests==2.31.0
+boto3==1.34.144
+pyshamir==1.0.4
+#aws-nsm-interface @ git+https://github.com/donkersgoed/aws-nsm-interface@main
+aws_nsm_interface_verifiably==1.0.1
+asn1crypto===1.5.1
