@@ -1,4 +1,4 @@
-# AWS Nitro Enclave Advanced Attestation and MPC-Blockchain Wallet
+# Advanced Attestation and multi-party crypto wallets with AWS Nitro Enclaves
 
 ## Architecture
 
@@ -7,6 +7,13 @@
 
 ### SSS Application
 ![](./docs/sss-architecture.png)
+
+
+#### External Dependencies
+* [viproxy](https://github.com/brave/viproxy): TCP/IP via vsock proxy.
+* [nitriding-daemon](https://github.com/brave/nitriding-daemon.git): HTTPS service that terminates incoming HTTPS connections, responds to attestation requests, and forwards all /app* HTTP requests to the sss app HTTP listener.
+* [gvproxy](https://github.com/containers/gvisor-tap-vsock): Proxy component that manages outbound and inbound TCP to vsock connections.
+* [nitrite](https://github.com/hf/nitrite.git): Go(lang) based binary to parse and verify AWS Nitro Enclave attestations.
 
 ## Deploying the solution with AWS CDK
 

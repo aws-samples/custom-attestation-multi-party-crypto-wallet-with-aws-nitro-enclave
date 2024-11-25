@@ -25,6 +25,9 @@ export CDK_DEPLOY_ACCOUNT=$(aws sts get-caller-identity | jq -r '.Account')
 export CDK_DEPLOY_REGION=us-east-1
 export C9_PUBLIC_IP="$(curl https://checkip.amazonaws.com)"
 
+# avoid buildx (e.g. Apple Silicon) issue https://stackoverflow.com/questions/75131872/error-failed-to-solve-failed-commit-on-ref-unexpected-status-400-bad-reques
+export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+
 # target outfile for cdk out params
 outfile="${1:-$CDK_PREFIX_e2e_test_outfile.json}"
 
@@ -112,6 +115,9 @@ fi
 
 # install and build external dependencies
 if [[ ${build_dependencies} = "true" ]]; then
+  # avoid issues building from inside corporate networks
+  export GOPROXY=direct
+
   # viproxy
   ./scripts/build_vsock_proxy.sh
 
@@ -124,6 +130,7 @@ if [[ ${build_dependencies} = "true" ]]; then
     git clone https://github.com/brave/nitriding-daemon.git
   fi
   cd nitriding-daemon
+  git reset --hard c8cb7248843c82a5d72ff6cdde90f4a4cf68c87f
   make nitriding
   cd ..
 
@@ -133,6 +140,7 @@ if [[ ${build_dependencies} = "true" ]]; then
     git clone https://github.com/hf/nitrite.git
   fi
   cd nitrite
+  git reset --hard f9e0dcc7370362c981e3aeac390f507e43deb313
   go build -o nitrite ./cmd/nitrite
   cd ..
 
@@ -157,8 +165,6 @@ if [[ ${bootstrap_cdk} = "true" ]]; then
 fi
 
 if [[ ${deploy_cdk} = "true" ]]; then
-  # deploy cdk stack
-  # todo subsequent calls will fail due to nlb issue -> takes time to propagate new ec2 instance
   cdk deploy ${CDK_PREFIX}NitroWalletSSS -O ${outfile} --require-approval never
 
   echo "waiting for stack to settle"
