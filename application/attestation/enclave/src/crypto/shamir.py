@@ -35,32 +35,24 @@ def generate_and_split_private_key(num_shards: int, threshold: int) -> tuple[lis
 
 
 def zero_memory(data):
-    if isinstance(data, (bytes, bytearray, int, ec.EllipticCurvePrivateKey)):
-        address = id(data)
-        logging.debug(f"zeroing out ({type(data)}) at: {address}")
-        if isinstance(data, (bytes, bytearray)):
-            # zero out the memory
-            ctypes.memset(address, 0, len(data))
-        elif isinstance(data, int):
-            # for integers, convert to bytes first
-            byte_length = (data.bit_length() + 7) // 8
-            data_bytes = data.to_bytes(byte_length, byteorder="big")
-            zero_memory(data_bytes)
-        elif isinstance(data, ec.EllipticCurvePrivateKey):
-            # for private keys, attempt to zero out the private value
-            private_numbers = data.private_numbers()
-            try:
-                private_value = private_numbers.private_value
-                zero_memory(private_value)
-                # set to zero after zeroing out
-                private_numbers._private_value = 0
-            except Exception:
-                # if we can't zero it out, overwrite with random data
-                key_size = data.key_size
-                random_int = int.from_bytes(
-                    secrets.token_bytes(key_size // 8), byteorder="big"
-                )
-                private_numbers._private_value = random_int
+    if isinstance(data, (bytes, bytearray)):
+        # create a new zeroed bytearray of the same length
+        zero_filled = bytearray(len(data))
+        # override the original data
+        data[:] = zero_filled
+    elif isinstance(data, int):
+        # for integers, we can simply set to 0
+        # note that in Python integers are immutable,
+        # so this creates a new object
+        data = 0
+    elif isinstance(data, ec.EllipticCurvePrivateKey):
+        # for private keys, let the cryptography library handle cleanup
+        # the private key material will be cleared when the object is destroyed
+        del data
+
+    # force garbage collection to help ensure cleanup
+    import gc
+    gc.collect()
 
 
 def combine_shards_and_sign(shards: List[bytes], message: bytes) -> Tuple[bytes, bytes]:

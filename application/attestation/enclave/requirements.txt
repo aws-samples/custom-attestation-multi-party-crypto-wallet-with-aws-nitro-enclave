@@ -1,5 +1,5 @@
-cryptography==40.0.1
-requests==2.31.0
+cryptography==43.0.1
+requests==2.32.2
 boto3==1.34.144
 pyshamir==1.0.4
 #aws-nsm-interface @ git+https://github.com/donkersgoed/aws-nsm-interface@main

@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 set -eo pipefail
 set +x
 
+source ${SCRIPT_DIR}/e2e.env
+
 # set default behaviour
+create_venv="true"
 build_dependencies="true"
 bootstrap_cdk="true"
 deploy_cdk="true"
@@ -17,16 +21,6 @@ run_cli_test="true"
 # if set to "true" cdk destroy will be called any time an error occurs
 destroy_cdk_on_error="false"
 destroy_cdk_on_exit="true"
-
-# override external otherwise serverless proxy does not become available
-export CDK_PREFIX="e2e"
-export CDK_DEPLOY_ACCOUNT=$(aws sts get-caller-identity | jq -r '.Account')
-# if run in a workshop account in region different from us-east-1, region needs to be allow listed
-export CDK_DEPLOY_REGION=us-east-1
-export C9_PUBLIC_IP="$(curl https://checkip.amazonaws.com)"
-
-# avoid buildx (e.g. Apple Silicon) issue https://stackoverflow.com/questions/75131872/error-failed-to-solve-failed-commit-on-ref-unexpected-status-400-bad-reques
-export BUILDX_NO_DEFAULT_ATTESTATIONS=1
 
 # target outfile for cdk out params
 outfile="${1:-$CDK_PREFIX_e2e_test_outfile.json}"
@@ -68,7 +62,8 @@ assert() {
 
 cleanup() {
   rm -f *cli.tmp recipient_private_key.pem recipient_public_key.pem
-  cdk destroy ${CDK_PREFIX}NitroWalletSSS --force
+  deactivate
+  "${SCRIPT_DIR}"/cleanup.sh
 }
 
 if [[ ${destroy_cdk_on_error} = "true" ]]; then
@@ -113,6 +108,15 @@ if [ -z "${outfile}" ]; then
   exit 1
 fi
 
+# create local venv and install dependencies
+if [[ ${create_venv} = "true" ]]; then
+  if [[ ! -d ".venv" ]]; then
+    python3 -m venv ".venv"
+  fi
+  source ".venv/bin/activate"
+  pip3 install -r "requirements.txt"
+fi
+
 # install and build external dependencies
 if [[ ${build_dependencies} = "true" ]]; then
   # avoid issues building from inside corporate networks
@@ -152,11 +156,6 @@ if [[ ${build_dependencies} = "true" ]]; then
   CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags '-extldflags "-static"' -o bin/gvproxy-linux-amd64 ./cmd/gvproxy
   cd ../../../..
 
-fi
-
-pip3 show aws-cdk-lib 1>/dev/null
-if [[ $? -ne 0 ]]; then
-  pip3 install -r requirements.txt
 fi
 
 # bootstrap cdk
@@ -203,8 +202,9 @@ while true; do
 done
 
 # default curl timeout is 5min
+echo -en "\nrequesting attestation document - setting max-time to 600s "
 if [[ ${run_attestation_test_public} = "true" ]]; then
-  attestation_doc=$(curl -k -s "https://${endpoint}${ATTESTATION_URL}")
+  attestation_doc=$(curl -k -s --max-time 600 "https://${endpoint}${ATTESTATION_URL}")
   attestation_doc_parsed=$(echo "${attestation_doc}" | xargs ${THIRD_PARTY_FOLDER}/nitrite/nitrite -attestation)
   echo "${attestation_doc_parsed}" | jq '.'
 fi
