@@ -99,6 +99,14 @@ class NitroWalletStack(Stack):
             ),
         )
 
+        gvproxy_systemd = s3_assets.Asset(
+            self,
+            "AWSNitroEnclaveGvproxyService",
+            path="./application/{}/systemd/gvproxy.service".format(
+                application_type
+            )
+        )
+
         vpc = ec2.Vpc(
             self,
             "VPC",
@@ -187,9 +195,12 @@ class NitroWalletStack(Stack):
             )
         )
 
-        # grant EC2 role access to watchdog assets
+        # grant EC2 role access to all required assets
         watchdog.grant_read(role)
         watchdog_systemd.grant_read(role)
+        imds_systemd.grant_read(role)
+        gvproxy_systemd.grant_read(role)
+
 
         block_device = ec2.BlockDevice(
             device_name="/dev/xvda",
@@ -210,6 +221,7 @@ class NitroWalletStack(Stack):
             "__WATCHDOG_S3_URL__": watchdog.s3_object_url,
             "__WATCHDOG_SYSTEMD_S3_URL__": watchdog_systemd.s3_object_url,
             "__IMDS_SYSTEMD_S3_URL__": imds_systemd.s3_object_url,
+            "__GVPROXY_SYSTEMD_S3_URL__": gvproxy_systemd.s3_object_url,
             "__REGION__": self.region,
         }
 

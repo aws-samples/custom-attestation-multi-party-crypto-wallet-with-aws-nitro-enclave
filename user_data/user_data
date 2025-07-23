@@ -82,6 +82,7 @@ ACCOUNT_ID=$( aws sts get-caller-identity | jq -r '.Account' )
 REGION=$(TOKEN=`curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"` && curl -H "X-aws-ec2-metadata-token: $TOKEN" -v http://169.254.169.254/latest/meta-data/placement/region)
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
 docker pull ${__OUTBOUND_PROXY_IMAGE_URI__}
+docker tag ${__OUTBOUND_PROXY_IMAGE_URI__} gvproxy:latest
 docker pull ${__SIGNING_ENCLAVE_IMAGE_URI__}
 
 nitro-cli build-enclave --docker-uri ${__SIGNING_ENCLAVE_IMAGE_URI__} --output-file signing_server.eif
@@ -94,25 +95,19 @@ EOF
   sudo -H -u ec2-user bash -c "cd /home/ec2-user/app/server && ./build_signing_server_enclave.sh"
 fi
 
-# todo remove gates
-if [[ ! -f /etc/systemd/system/nitro-signing-server.service ]]; then
+aws s3 cp ${__WATCHDOG_S3_URL__} /home/ec2-user/app/watchdog.py
+aws s3 cp ${__WATCHDOG_SYSTEMD_S3_URL__} /etc/systemd/system/enclave-watchdog.service
+aws s3 cp ${__IMDS_SYSTEMD_S3_URL__} /etc/systemd/system/enclave-imds-proxy.service
+aws s3 cp ${__GVPROXY_SYSTEMD_S3_URL__} /etc/systemd/system/gvproxy.service
 
-  aws s3 cp ${__WATCHDOG_S3_URL__} /home/ec2-user/app/watchdog.py
-  aws s3 cp ${__WATCHDOG_SYSTEMD_S3_URL__} /etc/systemd/system/enclave-watchdog.service
-  aws s3 cp ${__IMDS_SYSTEMD_S3_URL__} /etc/systemd/system/enclave-imds-proxy.service
+chmod +x /home/ec2-user/app/watchdog.py
 
-  chmod +x /home/ec2-user/app/watchdog.py
-
-fi
-
-# todo future dependencies for watchdog
+# add system wide requirements for watchdog.py
 pip3 install boto3
 pip3 install botocore
 
 # start and register the nitro signing server service for autostart
 systemctl enable --now enclave-watchdog.service
 systemctl enable --now enclave-imds-proxy.service
-
-# docker over system process manager
-docker run -d --restart unless-stopped --name gvproxy --privileged --security-opt seccomp=unconfined -p 443:443 -p 9090:9090 ${__OUTBOUND_PROXY_IMAGE_URI__}
+systemctl enable --now gvproxy.service
 --//--

@@ -5,9 +5,7 @@
 set -e
 set -x
 
-# start gvproxy in the background
-exec ./gvproxy -listen vsock://:1024 -listen unix:///tmp/network.sock &
-GVPROXY_PID=$!
+VSOCK_SOCKET="/tmp/network.sock"
 
 # function to setup port forwarding
 setup_forward() {
@@ -18,8 +16,19 @@ setup_forward() {
     -d "{\"local\":\":$local_port\",\"remote\":\"192.168.127.2:$remote_port\"}"
 }
 
+# in case that the container does experience a non gracefull shutdown, the tmp socket needs
+# to be deleted before bringing gvisor up again to avoid an `address already in use` error:
+# gvproxy exiting: cannot listen: listen unix /tmp/network.sock: bind: address already in use
+if [ -S ${VSOCK_SOCKET} ]; then
+  rm -f ${VSOCK_SOCKET}
+fi
+
+# start gvproxy in the background
+./gvproxy -listen vsock://:1024 -listen unix:///tmp/network.sock &
+GVPROXY_PID=$!
+
 # wait for gvproxy to start
-sleep 1
+sleep 5
 
 # Setup forward rules
 setup_forward 443 443

@@ -244,7 +244,6 @@ def sign_transaction(
         return {}
 
     try:
-        # key_shard_enclave_b64 = decrypt_shard_via_kms(session, encrypted_shard)
         key_shard_enclave_b64 = decrypt_shard_via_kms_cryptographic_attestation(
             session, ssm_params, PUBLIC_KEY_FILE, PRIVATE_KEY_FILE, encrypted_shard
         )

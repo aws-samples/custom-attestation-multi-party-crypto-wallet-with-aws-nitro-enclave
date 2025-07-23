@@ -11,7 +11,10 @@ ENV DEPLOYMENT=$DEPLOYMENT_ARG
 
 WORKDIR /app
 # additional binarys would be required for debugging
-#RUN apt-get update && apt-get install git curl net-tools jq awscli -y && apt-get clean
+#RUN apt-get update && apt-get install git net-tools jq awscli iproute2 -y && apt-get clean
+
+# additional dependencies for bash based credentials gathering
+# RUN apt-get update && apt-get install curl jq iproute2 -y && apt-get clean
 
 COPY ./enclave/requirements.txt ./
 RUN pip3 install -r ./requirements.txt
